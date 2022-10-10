@@ -1,9 +1,9 @@
 #Tim Engelbracht, 08.10.22
 import serial
 import time
+import numpy as np
+import typing
 
-#TODO: was hat es mit dem 3. Kanal auf sich?
-#TODO: returns
 #TODO: Arbitary-mode
 
 
@@ -23,7 +23,8 @@ class HM8143():
                                 baudrate=baudrate,
                                 parity=serial.PARITY_NONE,
                                 stopbits=serial.STOPBITS_ONE,
-                                bytesize=serial.EIGHTBITS)
+                                bytesize=serial.EIGHTBITS,
+                                timeout = 0)
 
     def start_remote_control(self):
         #start remote control and disable physical controls
@@ -127,31 +128,52 @@ class HM8143():
 
     def return_voltage_target(self, channel: int = 1):
         #return TARGET voltage value (RUx)
-        pass
+
+        self.ser.write(f'RU{channel}'.encode())
+
+        return self.ser.readline().decode()
 
     def return_current_target(self, channel: int = 1):
         #return TARGET current value (RIx)
-        pass
+
+        self.ser.write(f'RI{channel}'.encode())
+
+        return self.ser.readline().decode()
 
     def return_voltage_actual(self, channel: int = 1):
         #return ACTUAL voltage value (MUx)
-        pass
+
+        self.ser.write(f'MU{channel}'.encode())
+
+        return self.ser.readline().decode()
 
     def return_current_actual(self, channel: int = 1):
         #return ACTUAL current value (MIx)
-        pass
+
+        self.ser.write(f'MI{channel}'.encode())
+
+        return self.ser.readline().decode()
 
     def return_status(self):
         #return device status
-        pass
+
+        self.ser.write('STA'.encode())
+
+        return self.ser.readline().decode()
 
     def return_version(self):
         #return the device's software version
-        pass
+
+        self.ser.write('VER'.encode())
+
+        return self.ser.readline().decode()
 
     def return_ID(self):
         #return the device's ID
-        pass
+
+        self.ser.write('ID?'.encode())
+
+        return self.ser.readline().decode()
 
     def clear(self):
         # disable output sockets, set all currents and voltages to zero
@@ -161,28 +183,112 @@ class HM8143():
 
         return 1
 
+    def load_arbitrary_func(self, arb_function: typing.Dict[float, float], iteration: int):
+        #loads arbitrary func as dict {duration1: voltage1, duration2: voltage2, ...}
+        #example: arb_function = {1: 20.0, 1e-3: 15.0, 100e-3: 2.0}
+        #if iteration = 0: endless looping through arb func
+
+        #TODO: testing of arb func
+
+        comm = 'ABT:'
+
+        if iteration > 255:
+            raise ValueError('max iterations: 255')
+
+        if len([vals for vals in arb_function.items() if vals[1] > 30]) > 0:
+            raise ValueError('voltages must not exceed 30V')
+
+
+        #time in seconds: serial key
+        time_mapping = {100e-6: '0',
+                        1e-3: '1',
+                        2e-3: '2',
+                        5e-3: '3',
+                        10e-3: '4',
+                        20e-3: '5',
+                        50e-3: '6',
+                        100e-3: '7',
+                        200e-3: '8',
+                        50e-3: '9',
+                        1: 'A',
+                        2: 'B',
+                        5: 'C',
+                        10: 'D',
+                        20: 'E',
+                        50: 'F'}
+
+        if set(list(arb_function.keys())).issubset(set(list(time_mapping.keys()))) == False:
+            raise ValueError('one of the set durations in arb func is not suppoerted. Choose from the following: [0.05, 0.1, 0.2, 1, 2, 5, 10, 0.01, 50, 20, 0.005, 0.02, 0.0001, 0.002, 0.001]')
+        #
+
+        for key in arb_function:
+            comm = comm + time_mapping[key] + f"{arb_function[key]:05.2f}" + '_'
+
+        comm = comm + f"N{iteration}"
+
+        self.ser.write(comm.encode())
+
+        return 1
+
+    def run_arbitrary_func(self):
+        #run the loaded arbitrary function
+
+        self.ser.write('OP1'.encode())
+        time.sleep(0.1)
+        self.ser.write('RUN'.encode())
+
+        return 1
+
+    def stop_arbitrary_func(self):
+        # stop the running arbitrary function
+
+        self.ser.write('STP'.encode())
+        time.sleep(0.1)
+        self.ser.write('OP0'.encode())
+
+        return 1
+
+    def end_connection(self):
+
+        self.ser.close()
+
+        return 1
+
 
 
 
 
 
 if __name__ == '__main__':
-    ser = serial.Serial(
-        port='COM5',
-        baudrate=9600,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        bytesize=serial.EIGHTBITS
-    )
 
+    dev = HM8143()
+    dev.return_ID()
+    dev.start_remote_control()
 
+    # for i in np.linspace(1,29,29):
+    #
+    #     dev.set_voltage_sync(i*1)
+    #     time.sleep(0.05)
+    #     print(dev.return_current_target(1))
+    #     time.sleep(0.05)
+    #dev.set_current(1,0.420)
 
-    ser.write('RM0'.encode())
     time.sleep(1)
-    ser.write('RM1'.encode())
+    print(dev.return_status())
     time.sleep(1)
-    for i in range(20):
-        ser.write(f'OP1'.encode())
+
+    dev.load_arbitrary_func({1: 20.0, 1e-3: 15.0, 100e-3: 2.0}, 2)
+    dev.run_arbitrary_func()
+
+    a = 0
+    while a<3:
+        print(dev.return_voltage_actual(2))
         time.sleep(0.1)
-        ser.write(f'SU1:{str(i)}.00'.encode())
-        time.sleep(1)
+        a = a + 0.1
+
+    #dev.end_remote_control()
+    dev.clear()
+    time.sleep(1)
+    dev.end_connection()
+
+    a = 2
