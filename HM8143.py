@@ -428,16 +428,16 @@ if __name__ == '__main__':
     for i in np.linspace(1, 30, 30):
 
         dev.set_voltage(i, 1)
-        time.sleep(0.01)
+        time.sleep(0.1)
 
         dev.set_current(i*0.06, 1)
-        time.sleep(0.01)
+        time.sleep(0.1)
 
         dev.set_voltage(30-i, 2)
-        time.sleep(0.01)
+        time.sleep(0.1)
 
         dev.set_current(2-(i*0.06), 2)
-        time.sleep(0.01)
+        time.sleep(0.1)
 
     time.sleep(1)
 
