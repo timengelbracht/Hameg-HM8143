@@ -16,7 +16,7 @@
 
 ## Example
 
-        ``` 
+        ´´´
         #instantiate object, thus opening connection
         dev = HM8143(port="COM5")
 
@@ -45,8 +45,7 @@
         time.sleep(1)
         #close serial connection
         dev.end_connection()
-
-        ```
+        ´´´
 ## More infos
     functionalities exceed what is shown in the example. Further functions include: 
         - mixed mode (both manual and remote control)
